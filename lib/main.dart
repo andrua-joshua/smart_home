@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:smart_home/bloc/storage_logic/storage.dart';
 import 'package:smart_home/route.dart';
 
-void main() {
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  
+
   runApp(const MyApp());
 }
 

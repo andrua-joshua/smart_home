@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:smart_home/bloc/storage_logic/model/device.dart';
+import 'package:smart_home/bloc/storage_logic/storage.dart';
 import 'package:smart_home/screens/home_screen/widgets/home_screen_widget.dart';
 import 'package:smart_home/util/app_colors.dart';
 import 'package:smart_home/util/app_constants.dart';
@@ -26,14 +28,12 @@ class AdsWidgetState extends State<AdsWidget>{
 
 
 class UnitDeviceItem extends StatefulWidget{
-  final bool isActive;
-  final String deviceType;
-  final String deviceLabel;
+  final int deviceIndex;
+  final int roomIndex;
 
   const UnitDeviceItem({
-    required this.deviceLabel,
-    required this.isActive,
-    required this.deviceType,
+    required this.deviceIndex,
+    required this.roomIndex,
     super.key
   });
 
@@ -82,12 +82,27 @@ class UnitDeviceItemState extends State<UnitDeviceItem>{
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.deviceLabel, style: AppStyle.roomLabelStyle,),
-                  Text(widget.deviceType, style: AppStyle.deviceCountLabelStyle,)
+                  Text(
+                    DataStorage.allRooms[widget.roomIndex]
+                    .devices[widget.deviceIndex].deviceName, 
+                    style: AppStyle.roomLabelStyle,),
+                  Text(
+                    DataStorage.allRooms[widget.roomIndex]
+                    .devices[widget.deviceIndex].deviceType, 
+                    style: AppStyle.deviceCountLabelStyle,)
                 ],
               )),
             const SizedBox(width: 10,),
-            DToggleButton(onChange: (v){})
+            DToggleButton(
+              initState: 
+                DataStorage.allRooms[widget.roomIndex]
+                    .devices[widget.deviceIndex].deviceState==1? true:false,
+              onChange: (v)async{
+                DataStorage.changeRoomDeviceState(
+                  roomIndex: widget.roomIndex, 
+                  deviceIndex: widget.deviceIndex, 
+                  state: v?0:1);
+              })
           ],
         ),
       ),
@@ -97,24 +112,19 @@ class UnitDeviceItemState extends State<UnitDeviceItem>{
 
 
 class Devices extends StatelessWidget{
-  const Devices({super.key});
+  final List<Device> devices;
+  final int roomIndex;
+  const Devices({super.key, required this.devices, required this.roomIndex});
 
   @override
   Widget build(BuildContext context){
 
-    List<String> devices = [
-      "Light one",
-      "Fan",
-      "Ac controller",
-      "Light Strips",
-    ];
-
     return Column(
       children: List.generate(
-        devices.length, (index) => UnitDeviceItem(
-          deviceLabel: devices[index], 
-          deviceType: AppConstants.outputDevice,
-          isActive: false)),
+        devices.length, (index) => 
+        UnitDeviceItem(
+          roomIndex: roomIndex,
+          deviceIndex: index,)),
     );
   }
 }
@@ -122,7 +132,8 @@ class Devices extends StatelessWidget{
 
 class SimpleRow extends StatelessWidget{
   final String label;
-  const SimpleRow({required this.label, super.key});
+  final Function() onclick;
+  const SimpleRow({required this.label, super.key, required this.onclick});
 
   @override
   Widget build(BuildContext context){
@@ -132,7 +143,7 @@ class SimpleRow extends StatelessWidget{
         Text(label, style: AppStyle.roomLabelStyle,),
 
         IconButton(
-          onPressed: (){}, 
+          onPressed: ()=> onclick(), 
           icon: const CircleAvatar(child:Icon(Icons.add)))
       ],
     );

@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:smart_home/bloc/logic.dart';
+import 'package:smart_home/bloc/storage_logic/model/room.dart';
+import 'package:smart_home/bloc/storage_logic/storage.dart';
+import 'package:smart_home/providers/devices_provider.dart';
 import 'package:smart_home/route.dart';
 import 'package:smart_home/screens/dialogs/dialogs.dart';
 import 'package:smart_home/util/app_colors.dart';
+import 'package:smart_home/util/app_images.dart';
 import 'package:smart_home/util/app_styles.dart';
+import 'package:provider/provider.dart';
 
 class TopWidget extends StatefulWidget{
   const TopWidget({super.key});
@@ -15,6 +21,7 @@ class TopWidget extends StatefulWidget{
 
 class TopWidgetState extends State<TopWidget>{
 
+  bool isConnected = false;
   @override
   Widget build(BuildContext context){
     return Container(
@@ -42,7 +49,10 @@ class TopWidgetState extends State<TopWidget>{
                   width: 60,
                   decoration: BoxDecoration(
                     color: AppColor.dualWhiteBgColor,
-                    borderRadius: BorderRadius.circular(10)
+                    borderRadius: BorderRadius.circular(10),
+                    image: const DecorationImage(
+                      fit: BoxFit.cover,
+                      image: AssetImage(AppImages.appLogoImage))
                   ),
                 ),
                 const SizedBox(width: 20,),
@@ -52,13 +62,21 @@ class TopWidgetState extends State<TopWidget>{
                     showDialog(
                       context: context, 
                       builder: (conetext){
-                        return const AlertDialog(
-                          contentPadding: EdgeInsets.all(0),
-                          content: BTListDialog(),
+                        return AlertDialog(
+                          contentPadding: const EdgeInsets.all(0),
+                          content: BTListDialog(
+                            onConnected: (){
+                              setState(() {
+                                isConnected = true;
+                              });
+                            },
+                          ),
                         );
                       });
                   }, 
-                  icon: const CircleAvatar(child:Icon(Icons.bluetooth)))
+                  icon: CircleAvatar(
+                    backgroundColor: isConnected? AppColor.primaryColor: null,
+                    child:const Icon(Icons.bluetooth)))
               ],
             ),
           ),
@@ -218,12 +236,14 @@ class OptionsItemWidget extends StatelessWidget{
 
 class UnitRoomItem extends StatefulWidget{
   final String label;
-  final int deviceCount;
+  final int roomIndex;
+  final int devicesCount;
   final double width;
 
   const UnitRoomItem({
     required this.label,
-    required this.deviceCount,
+    required this.roomIndex,
+    required this.devicesCount,
     required this.width,
     super.key
   });
@@ -240,7 +260,7 @@ class UnitRoomItemState extends State<UnitRoomItem>{
   @override
   Widget build(BuildContext context){
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, RouteGenerator.roomDetailsScreen, arguments: widget.label),
+      onTap: () => Navigator.pushNamed(context, RouteGenerator.roomDetailsScreen, arguments: widget.roomIndex),
       child:Container(
       width: widget.width,
       margin: const EdgeInsets.symmetric(vertical: 10),
@@ -257,17 +277,19 @@ class UnitRoomItemState extends State<UnitRoomItem>{
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                CircleAvatar(),
+                const CircleAvatar(),
                 DToggleButton(
-                  onChange: (val){})                
+                  onChange: (val){
+                    DataStorage.changeAllRomDeviceState(roomIndex: widget.roomIndex, state: val? 0:1);
+                  })                
               ],
             ),
           ),
           const SizedBox(height: 20,),
           Text(widget.label, style: AppStyle.roomLabelStyle,),
-          Text("${widget.deviceCount} devices connected", style: AppStyle.deviceCountLabelStyle,),
+          Text("${widget.devicesCount} devices connected", style: AppStyle.deviceCountLabelStyle,),
           const SizedBox(height: 20,),
-          Center(child:Text("${widget.deviceCount-1} devices connected")),
+          Center(child:Text("${widget.devicesCount-1} devices active")),
           const SizedBox(height: 10,),
         ],
       ),
@@ -277,46 +299,57 @@ class UnitRoomItemState extends State<UnitRoomItem>{
 
 
 class RoomItems extends StatelessWidget{
-  const RoomItems({super.key});
+  final List<Room> rooms;
+  const RoomItems({super.key, required this.rooms});
 
 
   @override
   Widget build(BuildContext context){
 
-    List<String> rooms  = [
-      "Living Room",
-      "Bedroom 1",
-      "Bedroom 2",
-      "Master Bedroom",
-      "Bathroom",
-      "Kitchen"
-    ];
 
-    return Padding(
+    return ChangeNotifierProvider<RoomDevicesProvider>(
+      create: (context) => RoomDevicesProvider(),
+      builder:(context, child) {
+        return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child:LayoutBuilder(
       builder: (context, constraints){
 
         double width = constraints.maxWidth*0.48;
+        int count = 0;
+        int itemsCount = rooms.length;
+        int rows = (itemsCount/2).ceil();
+        int rem = itemsCount%2;
 
-        return Column(
+        debugPrint("::::: items Count::> $itemsCount");
+        return Consumer<RoomDevicesProvider>(
+          builder:(context, value, child) {
+            return Column(
           children: List.generate(
-            3, (index) => Row(
+            rows, (index) => Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: List.generate(
-                2, (index2) => UnitRoomItem(
-                  label: rooms[index*index2], deviceCount: 4, width: width)),
+                (rem>0 && rows == (index+1))? 1: 2 , (index2)  {
+
+                  ++count;
+                  debugPrint("::::>>>>>>>>> current roomIndex:  ${count}");
+                  return UnitRoomItem(
+                    devicesCount:  rooms[count-1].devices.length,
+                  label: rooms[count-1].roomLabel, roomIndex: count-1, width: width);}),
             )),
         );
+          }, );
 
       }));
+      },);
   }
 }
 
 
 class DToggleButton extends StatefulWidget{
+  bool? initState;
   final Function(bool) onChange;
-  const DToggleButton({required this.onChange ,super.key});
+  DToggleButton({required this.onChange ,super.key, this.initState});
 
   @override
   DToggleButtonState createState () => DToggleButtonState();
@@ -326,33 +359,40 @@ class DToggleButton extends StatefulWidget{
 
 class DToggleButtonState extends State<DToggleButton>{
 
-  bool isActive = false;
+  bool? isActive;
 
   @override
   Widget build(BuildContext context){
+    bool newState;
+    if(widget.initState!=null && isActive ==null){
+      isActive = widget.initState;
+    }else if(widget.initState==null && isActive ==null){
+      isActive = false;
+    }
     return GestureDetector(
       onTap: (){
         setState(() {
           
-          isActive = !isActive;
-          widget.onChange(isActive);
+          bool state = isActive?? false;
+          isActive = !state;
+          widget.onChange(state);
         });
       },
       child:Container(
       decoration: BoxDecoration(
-        color: isActive? AppColor.primaryColor: null,
-        border:isActive? null : Border.all(color: AppColor.primaryColor, width: 1),
+        color: (newState = isActive??false)? AppColor.primaryColor: null,
+        border:(newState = isActive??false)? null : Border.all(color: AppColor.primaryColor, width: 1),
         borderRadius: BorderRadius.circular(6)
       ),
 
       padding: EdgeInsets.only(
-        left: isActive? 12: 1,
-        right: isActive? 1: 12
+        left: (newState = isActive??false)? 12: 1,
+        right: (newState = isActive??false)? 1: 12
       ),
 
       child: CircleAvatar(
         radius: 6,
-        backgroundColor: isActive? Colors.white: AppColor.primaryColor,
+        backgroundColor: (newState = isActive??false)? Colors.white: AppColor.primaryColor,
       ),
     ));
   }
