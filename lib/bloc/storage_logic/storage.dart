@@ -194,3 +194,17 @@ class DataStorage{
    }
 
 }
+
+
+
+/**
+ * =================changes to be made==========
+ *    1. Deleting a device from the room
+ *    2. Distinguish input & output devices
+ *    3. Change welcome screen background color
+ * 
+ **/
+
+
+
+

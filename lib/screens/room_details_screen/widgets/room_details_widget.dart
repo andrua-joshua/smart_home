@@ -48,7 +48,11 @@ class UnitDeviceItemState extends State<UnitDeviceItem>{
 
   @override
   Widget build(BuildContext context){
-    return Container(
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        
+      },
+      child:Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
         color: AppColor.primaryColor
@@ -106,7 +110,7 @@ class UnitDeviceItemState extends State<UnitDeviceItem>{
           ],
         ),
       ),
-    );
+    ));
   }
 }
 
